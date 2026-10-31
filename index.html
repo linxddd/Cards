@@ -55,7 +55,7 @@ try{const s=localStorage.getItem(K);if(s)Object.assign(DB,JSON.parse(s));else DB
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(DB))}catch(e){}};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let tab="study",q=[],cur=null,flip=false,S=null,busy="",qz=null,qm="h2t",score=[0,0],pend=null,ef=null,sq="",chat=[],expl="";
+let tab="study",q=[],cur=null,flip=false,S=null,busy="",qz=null,qm="h2t",score=[0,0],pend=null,ef=null,sq="",chat=[],expl="",ck=[];
 const ai=()=>S||DB.key;
 const P='Ты помощник по китайскому для русскоязычного студента уровня HSK 4. Верни ТОЛЬКО JSON-массив, без пояснений и без markdown. Каждый элемент: {"h":"иероглифы","p":"пиньинь с тонами","t":"краткий перевод на русский","eh":"простое предложение-пример на китайском","ep":"пиньинь предложения","et":"перевод предложения на русский"}.';
 const SYS="Ты репетитор китайского для русскоязычного студента уровня HSK 4. Отвечай по-русски, кратко, иероглифы всегда с пиньинем.";
@@ -69,6 +69,7 @@ function mk(o){const d=o.d||DB.deck||G;if(DB.decks.indexOf(d)<0)DB.decks.push(d)
 const dup=(h,d)=>DB.cards.some(c=>c.h==String(h).trim()&&c.d==d);
 function toast(s){const m=$("#msg");m.textContent=s;m.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>m.hidden=true,3500)}
 const err=e=>e.message=="nokey"?"Нужен API-ключ: вкладка «Слова», раздел внизу.":"Не получилось связаться с Claude. Проверь интернет или VPN.";
+const dopt=s=>DB.decks.map(d=>'<option'+(d==s?" selected":"")+'>'+esc(d)+'</option>').join("");
 function sel(){return'<select data-a="dk"><option value="">Все колоды</option>'+DB.decks.map(d=>'<option'+(d==DB.deck?" selected":"")+'>'+esc(d)+'</option>').join("")+'</select>'}
 function startStudy(){q=pool().filter(c=>c.due<=Date.now()).sort((a,b)=>a.due-b.due);next()}
 function next(){cur=q.shift()||null;flip=false;expl="";render()}
@@ -91,15 +92,15 @@ if(!qz||!p.some(c=>c.id==qz.c.id))newQ();const d=qz.a!=null;
 h+=r?'<div class="ex tr" style="margin:12px 0">'+esc(qz.c.t)+'</div>':'<div class="mi" style="cursor:default"><span style="font-size:'+fs(qz.c.h)+'px">'+esc(qz.c.h)+'</span></div>';
 h+='<div class="pin">'+(d?esc(qz.c.p):"")+'</div><div class="ops">'+qz.o.map((c,i)=>'<button class="op'+(r?" zh":"")+' '+(d?(c.id==qz.c.id?"ok":i==qz.a?"no":""):"")+'" data-a="ans" data-i="'+i+'"'+(d?" disabled":"")+'>'+esc(r?c.h:c.t)+'</button>').join("")+'</div>';
 return h+(d?'<button class="b" data-a="nq">Дальше</button>':"")+'<p class="mu c">Верно: '+score[0]+' из '+score[1]+'</p>'}
-function lst(){const k=sq.toLowerCase();return pool().filter(c=>!k||(c.h+c.p+c.t).toLowerCase().indexOf(k)>=0).map(c=>'<div class="li"><span class="zh">'+esc(c.h)+'</span><div data-a="edit" data-id="'+esc(c.id)+'"><div>'+esc(c.t)+'</div><div class="mu">'+esc(c.p)+'</div></div><button data-a="del" data-id="'+esc(c.id)+'" aria-label="Удалить">×</button></li>'.replace("</li>","</div>")).join("")}
-function pendView(h){return h+'<h2>Проверь перед сохранением: '+pend.length+'</h2>'+pend.map((o,i)=>'<div class="li" style="align-items:flex-start"><input type="checkbox" data-a="pk" data-i="'+i+'"'+(o.k?" checked":"")+'><div>'+["h","p","t"].map(k=>'<input type="text" data-a="pf" data-i="'+i+'" data-k="'+k+'" value="'+esc(o[k])+'">').join("")+'</div></div>').join("")+'<button class="b" data-a="psave">Сохранить отмеченные</button><button class="b s" data-a="pcancel">Отмена</button>'}
+function lst(){const k=sq.toLowerCase();return pool().filter(c=>!k||(c.h+c.p+c.t).toLowerCase().indexOf(k)>=0).map(c=>'<div class="li"><input type="checkbox" style="margin:0" data-a="ck" data-id="'+esc(c.id)+'"'+(ck.indexOf(c.id)>=0?" checked":"")+'><span class="zh">'+esc(c.h)+'</span><div data-a="edit" data-id="'+esc(c.id)+'"><div>'+esc(c.t)+'</div><div class="mu">'+esc(c.p)+'</div></div><button data-a="del" data-id="'+esc(c.id)+'" aria-label="Удалить">×</button></li>'.replace("</li>","</div>")).join("")}
+function pendView(h){return'<h2>Куда сохранить</h2><select id="pd">'+dopt(DB.deck||G)+'</select><input type="text" id="pn" placeholder="или новая колода, например Lesson 12"><h2>Проверь слова: '+pend.length+'</h2>'+pend.map((o,i)=>'<div class="li" style="align-items:flex-start"><input type="checkbox" data-a="pk" data-i="'+i+'"'+(o.k?" checked":"")+'><div>'+["h","p","t"].map(k=>'<input type="text" data-a="pf" data-i="'+i+'" data-k="'+k+'" value="'+esc(o[k])+'">').join("")+'</div></div>').join("")+'<button class="b" data-a="psave">Сохранить отмеченные</button><button class="b s" data-a="pcancel">Отмена</button>'}
 function words(){let h=sel();if(pend)return pendView(h);
 h+=ai()?'<label class="b'+(busy?" dis":"")+'">'+(busy=="p"?"Распознаю, это займёт до минуты…":"Сфоткать или выбрать страницу с лексикой")+'<input type="file" accept="image/*" hidden data-a="photo"></label>':'<p class="mu">Добавление по фото работает внутри Claude или с твоим API-ключом (раздел внизу).</p>';
 const e=ef||{},v=k=>esc(e[k]||"");
-h+='<details'+(ef?" open":"")+'><summary>'+(ef?"Редактировать слово":"Добавить слово вручную")+'</summary>'+[["fh","Иероглиф","h"],["fp","Пиньинь","p"],["ft","Перевод","t"],["feh","Пример на китайском","eh"],["fep","Пиньинь примера","ep"],["fet","Перевод примера","et"]].map(a=>'<input type="text" id="'+a[0]+'" placeholder="'+a[1]+'" value="'+v(a[2])+'">').join("")+(ai()?'<button class="b s" data-a="fill">Дополнить через Claude</button>':"")+'<button class="b" data-a="add">Сохранить</button>'+(ef?'<button class="b s" data-a="cancel">Отмена</button>':"")+'</details>';
+h+='<details'+(ef?" open":"")+'><summary>'+(ef?"Редактировать слово":"Добавить слово вручную")+'</summary>'+[["fh","Иероглиф","h"],["fp","Пиньинь","p"],["ft","Перевод","t"],["feh","Пример на китайском","eh"],["fep","Пиньинь примера","ep"],["fet","Перевод примера","et"]].map(a=>'<input type="text" id="'+a[0]+'" placeholder="'+a[1]+'" value="'+v(a[2])+'">').join("")+'<div class="mu" style="margin-top:8px">Колода</div><select id="fd">'+dopt(e.d||DB.deck||G)+'</select>'+(ai()?'<button class="b s" data-a="fill">Дополнить через Claude</button>':"")+'<button class="b" data-a="add">Сохранить</button>'+(ef?'<button class="b s" data-a="cancel">Отмена</button>':"")+'</details>';
 h+='<details><summary>Колоды, копия, ключ</summary><input type="text" id="nd" placeholder="Новая колода, например Lesson 6"><button class="b s" data-a="nd">Создать колоду</button><button class="b s" data-a="exp2">Сохранить копию в файл</button><label class="b s">Загрузить копию из файла<input type="file" accept=".json" hidden data-a="imp"></label>'+(S?"":'<p class="mu">Чтобы Claude работал вне приложения Claude, вставь API-ключ из console.anthropic.com. Он хранится только на этом устройстве, использование оплачивается отдельно.</p><input type="text" id="ky" placeholder="sk-ant-..." value="'+esc(DB.key)+'"><button class="b s" data-a="key">Сохранить ключ</button>')+'</details>';
 const p=pool();
-return h+'<h2>Слов: '+p.length+', выучено: '+p.filter(c=>c.box>=4).length+'</h2><input type="text" id="sq" data-a="sq" placeholder="Поиск" value="'+esc(sq)+'"><div id="ls">'+lst()+'</div>'}
+return h+'<h2>Слов: '+p.length+', выучено: '+p.filter(c=>c.box>=4).length+'</h2><input type="text" id="sq" data-a="sq" placeholder="Поиск" value="'+esc(sq)+'"><details'+(ck.length?" open":"")+'><summary>Переместить в колоду</summary><select id="mv" style="margin-top:8px">'+dopt(DB.deck||G)+'</select><input type="text" id="mn" placeholder="или новая колода"><button class="b s" data-a="ckall">Отметить все показанные</button><button class="b" id="mvb" data-a="mv">Переместить отмеченные: '+ck.length+'</button></details><div id="ls">'+lst()+'</div>'}
 function chatView(){if(!ai())return'<p class="em">Чат работает внутри Claude или с твоим API-ключом (вкладка «Слова», раздел внизу).</p>';
 return(chat.length?"":'<p class="em">Спроси про слово, грамматику или попроси составить диалог.</p>')+chat.map(m=>'<div class="'+(m.role=="user"?"me":"ex")+'">'+esc(m.content)+'</div>').join("")+(busy=="c"?'<p class="mu">Claude думает…</p>':"")+'<input type="text" id="ci" placeholder="Твой вопрос"><button class="b" data-a="send">Отправить</button>'}
 function render(){document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t==tab));$("#v").innerHTML=tab=="study"?study():tab=="quiz"?quiz():tab=="words"?words():chatView()}
@@ -116,8 +117,8 @@ function shrink(f){return new Promise((res,rej)=>{const i=new Image(),u=URL.crea
 async function photo(f){if(!f||busy)return;busy="p";render();
 try{const r=await arr(P+" Найди на фото все слова из списка лексики, включая имена собственные, и сделай карточку для каждого. Пример бери с фото, если он там есть, иначе придумай простой.",[await shrink(f)]),d=DB.deck||G;pend=r.filter(o=>o&&o.h).map(o=>Object.assign({},o,{k:!dup(o.h,d)}));if(!pend.length){pend=null;toast("Слов не нашёл")}}catch(e){toast(e.message=="nokey"||e.message=="api"?err(e):"Не получилось распознать. Попробуй фото почётче.")}
 busy="";render()}
-function add(){const g=i=>$("#"+i).value.trim(),o={h:g("fh"),p:g("fp"),t:g("ft"),eh:g("feh"),ep:g("fep"),et:g("fet")};if(!o.h)return toast("Впиши иероглиф");
-if(ef){Object.assign(DB.cards.find(c=>c.id==ef.id),o);ef=null;toast("Сохранено")}else{if(dup(o.h,DB.deck||G))return toast("Такая карточка уже есть");DB.cards.push(mk(o));toast("Карточка добавлена")}save();render()}
+function add(){const g=i=>$("#"+i).value.trim(),o={h:g("fh"),p:g("fp"),t:g("ft"),eh:g("feh"),ep:g("fep"),et:g("fet"),d:$("#fd").value};if(!o.h)return toast("Впиши иероглиф");
+if(ef){Object.assign(DB.cards.find(c=>c.id==ef.id),o);ef=null;toast("Сохранено")}else{if(dup(o.h,o.d))return toast("Такая карточка уже есть");DB.cards.push(mk(o));toast("Карточка добавлена")}save();render()}
 async function fill(){const h=$("#fh").value.trim();if(!h)return toast("Сначала впиши иероглиф");toast("Дополняю…");
 try{const o=(await arr(P+" Слово: "+h+". Верни массив из одного элемента."))[0];[["fp","p"],["ft","t"],["feh","eh"],["fep","ep"],["fet","et"]].forEach(a=>{if(!$("#"+a[0]).value)$("#"+a[0]).value=o[a[1]]||""});toast("Готово, проверь и сохрани")}catch(e){toast(err(e))}}
 async function explain(){if(busy)return;busy="x";render();try{expl=await llm("Объясни китайское слово "+cur.h+" ("+cur.p+", "+cur.t+") студенту HSK 4: как употребляется, частые сочетания, чем отличается от похожих слов, два коротких примера с пиньинем и переводом. Кратко, по-русски.")}catch(e){expl=err(e)}busy="";render()}
@@ -144,10 +145,13 @@ else if(a=="del"){DB.cards=DB.cards.filter(c=>c.id!=t.dataset.id);save();render(
 else if(a=="nd"){const n=$("#nd").value.trim();if(!n)return;if(DB.decks.indexOf(n)<0)DB.decks.push(n);DB.deck=n;save();toast("Колода создана и выбрана");render()}
 else if(a=="key"){DB.key=$("#ky").value.trim();save();toast("Ключ сохранён");render()}
 else if(a=="exp2")exp2()
-else if(a=="psave"){let n=0;pend.forEach(o=>{if(o.k&&o.h&&String(o.h).trim()){DB.cards.push(mk(o));n++}});pend=null;save();toast("Добавлено карточек: "+n);render()}
+else if(a=="psave"){const d=$("#pn").value.trim()||$("#pd").value;let n=0;pend.forEach(o=>{if(o.k&&o.h&&String(o.h).trim()&&!dup(o.h,d)){DB.cards.push(mk(Object.assign({},o,{d:d})));n++}});pend=null;DB.deck=d;save();toast("Добавлено карточек: "+n);render()}
+else if(a=="ckall"){document.querySelectorAll("#ls [data-a=ck]").forEach(x=>{if(ck.indexOf(x.dataset.id)<0)ck.push(x.dataset.id)});render()}
+else if(a=="mv"){const n=$("#mn").value.trim()||$("#mv").value;if(!ck.length)return toast("Сначала отметь слова");if(DB.decks.indexOf(n)<0)DB.decks.push(n);DB.cards.forEach(c=>{if(ck.indexOf(c.id)>=0)c.d=n});toast("Перемещено: "+ck.length);ck=[];DB.deck=n;save();render()}
 else if(a=="pcancel"){pend=null;render()}});
 document.addEventListener("change",e=>{const t=e.target,a=t.dataset.a;
 if(a=="photo")photo(t.files[0]);else if(a=="imp")imp(t.files[0]);else if(a=="pk")pend[+t.dataset.i].k=t.checked;
+else if(a=="ck"){const i=ck.indexOf(t.dataset.id);if(t.checked&&i<0)ck.push(t.dataset.id);else if(!t.checked&&i>=0)ck.splice(i,1);const b=$("#mvb");if(b)b.textContent="Переместить отмеченные: "+ck.length}
 else if(a=="dk"){DB.deck=t.value;save();qz=null;if(tab=="study")startStudy();else render()}});
 document.addEventListener("input",e=>{const t=e.target,a=t.dataset.a;if(a=="pf")pend[+t.dataset.i][t.dataset.k]=t.value;else if(a=="sq"){sq=t.value;$("#ls").innerHTML=lst()}});
 document.addEventListener("keydown",e=>{if(e.key=="Enter"&&e.target.id=="ci")send()});
